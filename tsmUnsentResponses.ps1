@@ -5,8 +5,16 @@
 #   we perform an additional webrequest to then transmit the responses
 #   There is also lots of logging for debugging later.
 
+# Include tsmHostVars File
+# Use the tsmHostVars file for loading your TSMs
+# This will prevent needing to alter the file
+# when updates are made to the main functions below
+. .\tsmHostVars.ps1
+
+
+# These vars have been left for visibility
 # TSM Hosts. IP or DNS Name (without domain) or a combination
-$tsmHosts = @("drc-ces-01", "drc-chs-01", "drc-cms-01") ###### CHANGE ME ######
+#$tsmHosts = @("drc-ces-01", "drc-chs-01", "drc-cms-01") ###### CHANGE ME ######
 
 # TSM IP addresses example
 #$tsmHosts = @("10.2.5.119", "10.2.5.112")
@@ -15,7 +23,8 @@ $tsmHosts = @("drc-ces-01", "drc-chs-01", "drc-cms-01") ###### CHANGE ME ######
 #$tsmHosts = Get-ADComputer -Filter * -SearchBase "OU=TSM,OU=Servers,DC=Test,DC=local" | Sort name | where Name -NE TSM-Access | select -ExpandProperty name
 
 # TSM Domain. Change to your domain.
-$tsmDomain = "polk.k12.ga.us" ###### CHANGE ME ######
+#$tsmDomain = "polk.k12.ga.us" ###### CHANGE ME ######
+
 
 # Set log file location. Default is current users Desktop
 #$tsmLogs = "$($env:USERPROFILE)\Desktop\$(get-date -format "yyyy-MM-dd")_tsmResponses.log"
