@@ -44,8 +44,8 @@ function getUnsentCount($htmlContent) {
     $UnSentCount = $htmlContent.ToString() -split "[`r`n]" | Select-String -SimpleMatch 'unsentCount'
     $UnSentCount = ($UnSentCount) -replace '\D+(\d+)\D+','$1'
 
+    # Return Number of Unsent Responses
     return $UnSentCount
-
 
 }
 
