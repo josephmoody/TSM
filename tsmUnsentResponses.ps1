@@ -9,7 +9,16 @@
 # Use the tsmHostVars file for loading your TSMs
 # This will prevent needing to alter the file
 # when updates are made to the main functions below
-. .\tsmHostVars.ps1
+
+$tsmVarFile = ".\tsmHostVars.ps1"
+if(Test-Path $tsmVarFile) {
+    . $tsmVarFile
+} else {
+    write-host "Could not locate TSM Var File. Please change file tsmVarFile variable to file location or from powershell navigate to folder containing files."
+    exit
+}
+
+Write-Host $PSScriptRoot
 
 
 # These vars have been left for visibility
