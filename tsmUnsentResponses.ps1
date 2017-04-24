@@ -19,8 +19,6 @@ if(Test-Path $tsmVarFile) {
     exit
 }
 
-Write-Host $PSScriptRoot
-
 
 # These vars have been left for visibility
 # TSM Hosts. IP or DNS Name (without domain) or a combination
@@ -43,6 +41,16 @@ $tsmLogs = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVers
 # Log for storing responses
 $tsmLogStudent = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" + (Get-Date -Format "yyyy-MM-dd") + "_tsmStudentResponses.log"
 
+# Check if log files exists
+If ((Test-Path -Path $tsmLogs) -eq 0) {
+    $logText = (getLogDate) + " - Start TSM Log"
+    Out-File -FilePath $tsmLogs -Append -InputObject $logText
+}
+
+If ((Test-Path -Path $tsmLogStudent) -eq 0) {
+    $logText = (getLogDate) + " - Start TSM Log"
+    Out-File -FilePath $tsmLogStudent -Append -InputObject $logText
+}
 
 # Amount of time to before webrequest timesout
 $reqTimeOut = 15
