@@ -15,6 +15,7 @@ if(Test-Path $tsmVarFile) {
     . $tsmVarFile
 } else {
     write-host "Could not locate TSM Var File. Please change file tsmVarFile variable to file location or from powershell navigate to folder containing files."
+    pause
     exit
 }
 
