@@ -30,6 +30,10 @@
 #$tsmLogs = "$($env:USERPROFILE)\Desktop\$(get-date -format "yyyy-MM-dd")_tsmResponses.log"
 $tsmLogs = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" + (Get-Date -Format "yyyy-MM-dd") + "_tsmResponses.log"
 
+# Log for storing responses
+$tsmLogStudent = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" + (Get-Date -Format "yyyy-MM-dd") + "_tsmStudentResponses.log"
+
+
 # Amount of time to before webrequest timesout
 $reqTimeOut = 15
 
@@ -123,6 +127,8 @@ function tsmCheckResponses {
 
             $result = (getLogDate) + " - WebStatusCode: " + $tsmStatus.StatusCode + " - " + $tsm + " has $($resNum) responses"
 
+            #Out-File -FilePath "C:\Users\dthompson\Desktop\tsmResponses.log" -Append -InputObject $tsmStatus.ToString()
+
             #Clear-Variable $tsmStatus
 
             if($resNum -gt 0) {
@@ -133,6 +139,9 @@ function tsmCheckResponses {
 
                 # Transmit Responses
                 $tsmTransmit = tsmWebRequest $hostname 1
+
+                # Output html for when there are student responses
+                Out-File -FilePath $tsmLogStudent -Append -InputObject $tsmTransmit.ToString()
                 
                 if($tsmTransmit -ne $null) {
                 
