@@ -1,4 +1,4 @@
-# Date:   2017-04-17
+﻿# Date:   2017-04-17
 # Description:
 #   This script performs a web request and check for any responses
 #   If the script determines that there are responses on the TSM
@@ -161,6 +161,54 @@ function tsmCheckResponses {
                 # Output html for when there are student responses
                 Out-File -FilePath $tsmLogStudent -Append -InputObject $tsmTransmit.ToString()
                 
+                
+          
+                # Convert Responoses Table Body from String to Object 
+                $unSentDataString = $tsmStatus.ParsedHtml.getElementById("responsesTableBody").innerhtml
+                $unSentDataString = $unSentDataString.Replace("<tr>",'')
+                $unSentDataString = $unSentDataString.Replace("</tr>",'')
+  
+                $SchoolIndex = $unSentDataString.IndexOf("<td>")
+                $unSentDataString = $unSentDataString.Substring($SchoolIndex)
+                $unSentData = $unSentDataString | ConvertFrom-String -Delimiter "<td>" -PropertyNames NA,School,TestSession,Student,GTID,EarliestResponse
+
+                $unSentData.PSObject.Properties.Remove('NA')
+               
+                $unSentDataSchoolIndex = $unSentData.School.IndexOf("<")
+                $unsentdata.School = $unSentData.School.Substring(0,$unSentDataSchoolIndex)
+
+                $unSentDataStudentIndex = $unSentData.Student.IndexOf("<")
+                $unsentdata.Student = $unSentData.Student.Substring(0,$unSentDataStudentIndex)
+
+                $unSentDataGTIDIndex = $unSentData.GTID.IndexOf("<")
+                $unsentdata.GTID = $unSentData.GTID.Substring(0,$unSentDataGTIDIndex)
+
+                $unSentDataTestSessionIndex = $unSentData.TestSession.IndexOf("<")
+                $unsentdata.TestSession = $unSentData.TestSession.Substring(0,$unSentDataTestSessionIndex)
+
+                $unSentDataEarliestResponseIndex = $unSentData.EarliestResponse.IndexOf("<")
+                $unsentdata.EarliestResponse = $unSentData.EarliestResponse.Substring(0,$unSentDataEarliestResponseIndex)
+
+
+                #Search TSM Unsent Resonses Log for previous GTID entry
+                $previousunSentResponseAlert = 3
+                $previousunSentResponseAlertforGTID = 0
+                $previousunSentResponseAlertforGTID = (Select-String -Path $tsmLogStudent -Pattern $unSentData.GTID).count
+
+                if ($previousunSentResponseAlertforGTID -ge $previousunSentResponseAlert){
+                $previousGTIDFound = $unsentdata.School + ": " + $unSentData.Student + " has " + $previousunSentResponseAlertforGTID + " previous unsent responses ending at " + $unSentData.EarliestResponse + ". Teacher name: " + $unSentData.TestSession
+                Write-Host -ForegroundColor Yellow $previousGTIDFound
+                Out-File -FilePath $tsmLogs -Append -InputObject $previousGTIDFound
+                }
+
+                
+                #Capture for more than 1 response in table - remove once unsentdata object is tested for 2+
+                if ($resNum -gt 1){
+                $tsmStatus.RawContent | Out-File .\tsmrawcontent.txt -Append
+                }
+
+
+
                 if($tsmTransmit -ne $null) {
                 
                     $transmitResponses = getUnsentCount($tsmTransmit.Content)
