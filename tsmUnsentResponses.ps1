@@ -190,6 +190,7 @@ function tsmCheckResponses {
                 $unsentdata.EarliestResponse = $unSentData.EarliestResponse.Substring(0,$unSentDataEarliestResponseIndex)
 
 
+
                 #Search TSM Unsent Resonses Log for previous GTID entry
                 $previousunSentResponseAlert = 3
                 $previousunSentResponseAlertforGTID = 0
@@ -202,6 +203,7 @@ function tsmCheckResponses {
                 }
 
                 #Output unsent data to TSM Student Log
+                Out-File -FilePath $tsmLogStudent -Append -InputObject $unSentData
                 
                 #Capture for more than 1 response in table - remove once unsentdata object is tested for 2+
                 if ($resNum -gt 1){
