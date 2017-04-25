@@ -201,6 +201,7 @@ function tsmCheckResponses {
                 Out-File -FilePath $tsmLogs -Append -InputObject $previousGTIDFound
                 }
 
+                #Output unsent data to TSM Student Log
                 
                 #Capture for more than 1 response in table - remove once unsentdata object is tested for 2+
                 if ($resNum -gt 1){
