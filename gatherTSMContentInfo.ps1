@@ -1,264 +1,66 @@
-﻿# Date:   2017-04-17
-# Description:
-#   This script performs a web request and check for any responses
-#   If the script determines that there are responses on the TSM
-#   we perform an additional webrequest to then transmit the responses
-#   There is also lots of logging for debugging later.
-
-# Include tsmHostVars File
-# Use the tsmHostVars file for loading your TSMs
-# This will prevent needing to alter the file
-# when updates are made to the main functions below
-
-$tsmVarFile = ".\tsmHostVars.ps1"
-if(Test-Path $tsmVarFile) {
-    . $tsmVarFile
-} else {
-    write-host "Could not locate TSM Var File. Please change file tsmVarFile variable to file location or from powershell navigate to folder containing files."
-    pause
-    exit
-}
-
-
-# These vars have been left for visibility
-# TSM Hosts. IP or DNS Name (without domain) or a combination
-#$tsmHosts = @("drc-ces-01", "drc-chs-01", "drc-cms-01") ###### CHANGE ME ######
-
-# TSM IP addresses example
-#$tsmHosts = @("10.2.5.119", "10.2.5.112")
-
-# TSM OU Name Example
-#$tsmHosts = Get-ADComputer -Filter * -SearchBase "OU=TSM,OU=Servers,DC=Test,DC=local" | Sort name | where Name -NE TSM-Access | select -ExpandProperty name
-
-# TSM Domain. Change to your domain.
-#$tsmDomain = "polk.k12.ga.us" ###### CHANGE ME ######
-
-
-# Set log file location. Default is current users Desktop
-#$tsmLogs = "$($env:USERPROFILE)\Desktop\$(get-date -format "yyyy-MM-dd")_tsmResponses.log"
-$tsmLogs = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" + (Get-Date -Format "yyyy-MM-dd") + "_tsmResponses.log"
-
-# Log for storing responses
-$tsmLogStudent = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" + (Get-Date -Format "yyyy-MM-dd") + "_tsmStudentResponses.log"
-
-# Amount of time to before webrequest timesout
-$reqTimeOut = 15
-
-# URL to check for UnSent responses
-$tsmUnSentURL = ":8080/studentResponse/unsent"
-
-# URL to Transmit Responses
-$tsmTransmittURL = ":8080/studentResponse/transmitResponses"
-
-# Get date Log format
-function getLogDate {
-
-    return (get-date -Format "yyyy-MM-dd HH:mm:ss")
-
-}
-
-# Check if log files exists
-If ((Test-Path -Path $tsmLogs) -eq 0) {
-    $logText = (getLogDate) + " - Start TSM Log"
-    Out-File -FilePath $tsmLogs -Append -InputObject $logText
-}
-
-If ((Test-Path -Path $tsmLogStudent) -eq 0) {
-    $logText = (getLogDate) + " - Start TSM Log"
-    Out-File -FilePath $tsmLogStudent -Append -InputObject $logText
-}
-
-# Function to parse the content from the WebRequest
-# Thanks to Joseph Moody for the RegEx
-function getUnsentCount($htmlContent) {
-
-    $UnSentCount = $htmlContent.ToString() -split "[`r`n]" | Select-String -SimpleMatch 'unsentCount'
-    $UnSentCount = ($UnSentCount) -replace '\D+(\d+)\D+','$1'
-
-    # Return Number of Unsent Responses
-    return $UnSentCount
-
-}
-
-
-function tsmWebRequest($tsmHostname, $tsmTrans) {
-
-    # Construct Url link
-    if($tsmTrans -gt 0) {
-        $link = "http://" + $tsmHostname + $tsmTransmittURL
-    } else {
-        $link = "http://" + $tsmHostname + $tsmUnSentURL
+﻿#Report should only be used against one type of TSM (WIDA or EOC/EOG).#First TSM should be online - if offline, only name and status column will populate.#Use only one of the two "$TSMServers =" input lines.    #Gather List of TSM Server Names through Active Directory. The last #| section shows how to exclude certain machine names.#$TSMServers = Get-ADComputer -Filter * -SearchBase "OU=TSM,OU=Servers,DC=TEST,DC=local" | sort Name #| where name -NE TSM-WIDA-01. .\tsmHostVars.ps1#$TSMServers = New-Object -TypeName psobject -Property ([ordered] @{#                    Name = "drc-ces-01.polk.k12.ga.us"#                    })#Gather List of TSM Server Names through CSV Import (header should be: Name)#$TSMServers = import-csv .\TSMServer.csv$TSMsInfo = @()# Start looping through each serverforeach ($TSMServer in $tsmHosts){    Clear-Variable StrVersion,StrDomain,StrIP,Content*,Uri,TSMInfo,Session -ErrorAction SilentlyContinue    # Construct Server URI    $URI = "http://" + $TSMServer + ":8080"    write-host Now processing $TSMServer    # Create WebRequest to Server    $Session = Invoke-WebRequest -Uri $URI -SessionVariable TSMSession    #Populate Bad Session Object    if ($Session -eq $null) {        $TSMInfo = New-Object -TypeName psobject -Property (                    [ordered] @{                        Name = $TSMServer                        Status = "Bad"                        }                    )        # Add Server to object        $TSMsInfo += $TSMInfo        Clear-Variable TSMInfo,Session -ErrorAction SilentlyContinue        continue    }        #Populate Good Session Object    if ($Session -ne $Null) {        # Convert Session to string and Split once        $strSession = $Session.ToString() -split "[`r`n]"        # Get Version Number        $Version = $strSession | Select-String "app version"        $StrVersion = $Version.ToString()        $StrVersion = $StrVersion.replace("    app version        ",'')            # Get Server Name        $Name = $strSession | Select-String -SimpleMatch '"TSM Name" value='        $StrName = $Name.ToString()        $StrName = $StrName.replace('						<input type="text" id="inputTSMName" class="input-xlarge" placeholder="TSM Name" value="','')        $StrName = $StrName.replace('" maxlength="40">','')        # Get DRC CentralOffice ServerName        $Domain = $strSession | Select-String -SimpleMatch 'TSM Server Domain:'        $StrDomain = $Domain.ToString()        $StrDomain = $StrDomain.Replace('			  		<label class="control-label"><strong>TSM Server Domain:</strong> ','')        $StrDomain = $StrDomain.Replace('.drc-centraloffice.com</label>','') # Removed DRC Central Office domain and trailing Label tag        # Get IP address        $IP = $strSession | Select-String -SimpleMatch 'TSM Server IP:'        $StrIP = $IP.ToString()        $StrIP = $StrIP.Replace('			  		<label class="control-label"><strong>TSM Server IP:</strong> ','')        $StrIP = $StrIP.Replace('</label>','')        # Get Cached Content        $Content = $strSession | Select-String -SimpleMatch '<span class="loadingError label label-important status" style="display: none;">'        $ContentCount = $Content.Count - 1         $ContentNumber = 0        while ($ContentNumber -le $ContentCount)        {            $ContentValue = $strSession | Select -index ($Content[$ContentNumber].LineNumber - 3)            $ContentValue = $ContentValue.Replace('										<td>','')            $ContentValue = $ContentValue.Replace('<br>','')            New-Variable -name "ContentName$ContentNumber" -Value $ContentValue -Force                                    $ContentUpdate = $strSession | Select -index ($Content[$ContentNumber].LineNumber + 11)            $ContentUpdate = $ContentUpdate.Split(">")[1]            $ContentUpdate = $ContentUpdate.Replace('</span','')            if(($ContentUpdate -ne "Up to Date") -eq $True) {                $ContentUpdate = '<FONT COLOR="ff0000">Out of Date</FONT>'            }            Clear-Variable ContentTTS -ErrorAction SilentlyContinue            $ContentTTS = $Session.ToString() -split "[`r`n]" | Select -index ($Content[$ContentNumber].LineNumber + 33)            $ContentTTS = $ContentTTS.Replace('													<input type="hidden" name="_downloadTTSEnabled" /><input type="checkbox" name="downloadTTSEnabled" checked="','')            $ContentTTS = $ContentTTS.Split('"')[0]                            if (($ContentTTS -ne "checked") -eq $True) {                $ContentTTS = '<FONT COLOR="ff0000">disabled</FONT>'            }                                        $ContentAttributes = "<dl><dt>Content</dt><dd> $($ContentUpdate)</dd><dt>TTS</dt><dd>$($ContentTTS)</dd></dl>"                                   New-Variable -name "ContentAttributes$ContentNumber" -Value $ContentAttributes -Force            $ContentNumber++                    }                            $TSMInfo = New-Object -TypeName psobject -Property ([ordered] @{                    Name = "<a href='$($URI)'>$($StrName)</a>"                    Status = "Good"                    Version = $StrVersion                    # Added the Central Office Domain to the Table Header                    'Domain (.drc-centraloffice.com)' = $StrDomain                    IP = $StrIP                    $ContentName0 = $ContentAttributes0                    $ContentName1 = $ContentAttributes1                    $ContentName2 = $ContentAttributes2                    $ContentName3 = $ContentAttributes3                    $ContentName4 = $ContentAttributes4        })        $TSMsInfo += $TSMInfo    }}# Assemble the HTML Header and CSS for our Report
+$Head = @"
+<title>TSM Server Report</title>
+<style type="text/css">
+<!--
+    body { font-family: Verdana, Geneva, Arial, Helvetica, sans-serif; }
+ 
+    #report { width: 835px; }
+ 
+    table {
+        border-width: 1px;border-style: solid;border-color: black;border-collapse: collapse;
+        font: 10pt Verdana, Geneva, Arial, Helvetica, sans-serif;
     }
-
-    
-        
-    # Try creating WebRequest and log errors
-    try {
-        $html = Invoke-WebRequest -Uri $link -TimeoutSec $reqTimeOut -DisableKeepAlive
-    } catch [System.Net.WebException] {
-            
-        # Timed out Exception
-        if($_.Exception.ToString() -like "*operation has timed out*") {
-                
-            $result = (getLogDate) + " - Error: " + $tsm + " - WebRequest timed out"
-        } else {
-            # Write Unhandled exceptions
-            $result = (getLogDate) + " - Unhandled Error: " + $tsm + " - " + $_.Exception.ToString()
-        }
-
-        # Write result to host
-        Write-Host -ForegroundColor Red $result
-
-        # Write to Log file
-        Out-File -FilePath $tsmLogs -Append -InputObject $result
-
-        return $null
-
+ 
+    table td {
+        border-width: 1px;padding: 3px;border-style: solid;border-color: black;
+        font-size: 12px;
+        text-align: left;
+        white-space: nowrap;
     }
+ 
+    table th {
+        border-width: 1px;padding: 3px;border-style: solid;border-color: black;background-color: #6495ED;
+        font-size: 12px;
+        font-weight: bold;
+        text-align: left;
+    }
+ 
+    h2 { clear: both; font-size: 130%; }
+ 
+    h3 {
+            clear: both;
+            font-size: 115%;
+            margin-left: 20px;
+            margin-top: 30px;
+    }
+ 
+    p { margin-left: 20px; font-size: 12px; }
 
-    # Return WebRequest
-    return $html
-
-}
-
-# Check for Responses
-function tsmCheckResponses {
-    foreach ($tsm in $tsmHosts) {
-
-        # Determine wether uri is IP or DNS Name
-        try {
-            $hostname = [ipaddress]$tsm
-        } catch {
-            $hostname = $tsm + "." + $tsmDomain
-        }
-        
-        $tsmStatus = tsmWebRequest $hostname 0
-
-        # Process Data if html var exists
-        
-        if($tsmStatus -ne $null) {
-            $resNum = 0
-            # Get number of responses        
-            $resNum = getUnsentCount($tsmStatus.Content)
-
-            #$resNum = 1 # test to submit responses
-
-            $result = (getLogDate) + " - WebStatusCode: " + $tsmStatus.StatusCode + " - " + $tsm + " has $($resNum) responses"
-
-            #Out-File -FilePath "C:\Users\dthompson\Desktop\tsmResponses.log" -Append -InputObject $tsmStatus.ToString()
-
-            #Clear-Variable $tsmStatus
-
-            if($resNum -gt 0) {
-                
-                # Write Number of Responses
-                Write-Host -ForegroundColor Green $result
-                Out-File -FilePath $tsmLogs -Append -InputObject $result
-
-                # Transmit Responses
-                $tsmTransmit = tsmWebRequest $hostname 1
-
-                # Output html for when there are student responses
-                Out-File -FilePath $tsmLogStudent -Append -InputObject $tsmTransmit.ToString()
-                
-                
-          
-                # Convert Responoses Table Body from String to Object 
-                $unSentDataString = $tsmStatus.ParsedHtml.getElementById("responsesTableBody").innerhtml
-                $unSentDataString = $unSentDataString.Replace("<tr>",'')
-                $unSentDataString = $unSentDataString.Replace("</tr>",'')
-  
-                $SchoolIndex = $unSentDataString.IndexOf("<td>")
-                $unSentDataString = $unSentDataString.Substring($SchoolIndex)
-                $unSentData = $unSentDataString | ConvertFrom-String -Delimiter "<td>" -PropertyNames NA,School,TestSession,Student,GTID,EarliestResponse
-
-                $unSentData.PSObject.Properties.Remove('NA')
-               
-                $unSentDataSchoolIndex = $unSentData.School.IndexOf("<")
-                $unsentdata.School = $unSentData.School.Substring(0,$unSentDataSchoolIndex)
-
-                $unSentDataStudentIndex = $unSentData.Student.IndexOf("<")
-                $unsentdata.Student = $unSentData.Student.Substring(0,$unSentDataStudentIndex)
-
-                $unSentDataGTIDIndex = $unSentData.GTID.IndexOf("<")
-                $unsentdata.GTID = $unSentData.GTID.Substring(0,$unSentDataGTIDIndex)
-
-                $unSentDataTestSessionIndex = $unSentData.TestSession.IndexOf("<")
-                $unsentdata.TestSession = $unSentData.TestSession.Substring(0,$unSentDataTestSessionIndex)
-
-                $unSentDataEarliestResponseIndex = $unSentData.EarliestResponse.IndexOf("<")
-                $unsentdata.EarliestResponse = $unSentData.EarliestResponse.Substring(0,$unSentDataEarliestResponseIndex)
-
-
-                #Search TSM Unsent Resonses Log for previous GTID entry
-                $previousunSentResponseAlert = 3
-                $previousunSentResponseAlertforGTID = 0
-                $previousunSentResponseAlertforGTID = (Select-String -Path $tsmLogStudent -Pattern $unSentData.GTID).count
-
-                if ($previousunSentResponseAlertforGTID -ge $previousunSentResponseAlert){
-                $previousGTIDFound = $unsentdata.School + ": " + $unSentData.Student + " has " + $previousunSentResponseAlertforGTID + " previous unsent responses ending at " + $unSentData.EarliestResponse + ". Teacher name: " + $unSentData.TestSession
-                Write-Host -ForegroundColor Yellow $previousGTIDFound
-                Out-File -FilePath $tsmLogs -Append -InputObject $previousGTIDFound
-                }
-
-                
-                #Capture for more than 1 response in table - remove once unsentdata object is tested for 2+
-                if ($resNum -gt 1){
-                $tsmStatus.RawContent | Out-File .\tsmrawcontent.txt -Append
-                }
-
-
-
-                if($tsmTransmit -ne $null) {
-                
-                    $transmitResponses = getUnsentCount($tsmTransmit.Content)
-                    $result = (getLogDate) + " - WebStatusCode: " + $tsmTransmit.StatusCode + " - " + $tsm + " has $($transmitResponses) responses that have not been transmitted"
-
-                    # Display number of responses that did not transmit
-                    if($transmitResponses -gt 0) {
-
-                        Write-Host -ForegroundColor Red $result
-                        Out-File -FilePath $tsmLogs -Append -InputObject $result
-                    } 
-
-                    # Display if all responses where transmitted
-                    else {
-                        $result = (getLogDate) + " - WebStatusCode: " + $tsmTransmit.statusCode + " - " + $tsm + " transmitted responses successfully"
-                        Write-Host -ForegroundColor Green $result
-                    }
-                } 
-
-                # Could not complete web request
-                else {
-                    $result = (getLogDate) + " - " + $tsm + " Invoke WebRequest Failed. Could not transmit responses"
-                    Write-Host -ForegroundColor Red $result
-
-                    Out-File -FilePath $tsmLogs -Append -InputObject $result
-                }
-
-            } else {
-                Write-Host $result
-            }
-
-        } else { # If tsmWebResponse is null
-
-            $result = (getLogDate) + " - " + $tsm + " Invoke WebRequest Failed"
-            Write-Host -ForegroundColor Red $result
-
-            Out-File -FilePath $tsmLogs -Append -InputObject $result
-        }
-        
-        
-     }
-
-}
-
-
-# Perform TSM Check Responses Loop
-
-while(1) {
-
-    tsmCheckResponses # Check for responses
-    Start-Sleep 8     # Sleep for number of seconds
-
-}
+    dt { display: block; float: left; width: 125px; text-align: right; }
+    dt:after {content:':';}
+    dd { display:block;}
+ 
+    table.list { float: left; }
+ 
+        table.list td:nth-child(1) {
+            font-weight: bold;
+            border-right: 1px grey solid;
+            text-align: right;
+    }
+ 
+    table.list td:nth-child(2) { padding-left: 7px; }
+    table tr:nth-child(even) td:nth-child(even) { background: #CCCCCC; }
+    table tr:nth-child(odd) td:nth-child(odd) { background: #F2F2F2; }
+    table tr:nth-child(even) td:nth-child(odd) { background: #CCCCCC; }
+    table tr:nth-child(odd) td:nth-child(even) { background: #F2F2F2; }
+    table tr:Hover TD {Background-Color: #C1D5F8;}
+    div.column { width: 320px; float: left; }
+    div.first { padding-right: 20px; border-right: 1px  grey solid; }
+    div.second { margin-left: 30px; }
+    table { margin-left: 20px; }
+-->
+</style>
+ 
+"@#Convert Object to HTML.Object - Use System.Web to add hyperlinks - output file and open it.$HTMLTSMInfo= $TSMsInfo | ConvertTo-Html -Head $head -PreContent "<h2>TSM Server Report</h2><br><br>" -PostContent “<br><h5>For questions or suggestions, contact Joseph@DeployHappiness.com</h5>”Add-Type -AssemblyName System.Web
+[System.Web.HttpUtility]::HtmlDecode($HTMLTSMInfo) | Out-File .\TSMReport.htm -Force# Open newly created reportInvoke-Expression .\tsmreport.htm
