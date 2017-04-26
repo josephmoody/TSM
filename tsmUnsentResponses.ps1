@@ -1,4 +1,5 @@
 ﻿# Date:   2017-04-17
+# Authors: David Thompson, Joseph Moody
 # Description:
 #   This script performs a web request and check for any responses
 #   If the script determines that there are responses on the TSM
@@ -20,7 +21,7 @@ if(Test-Path $tsmVarFile) {
 }
 
 
-# These vars have been left for visibility
+# These vars have been left for visibility. Configuration should be done is tsmHostVars file.
 # TSM Hosts. IP or DNS Name (without domain) or a combination
 #$tsmHosts = @("drc-ces-01", "drc-chs-01", "drc-cms-01") ###### CHANGE ME ######
 
@@ -35,14 +36,13 @@ if(Test-Path $tsmVarFile) {
 
 
 # Set log file location. Default is current users Desktop
-#$tsmLogs = "$($env:USERPROFILE)\Desktop\$(get-date -format "yyyy-MM-dd")_tsmResponses.log"
 $tsmLogs = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" + (Get-Date -Format "yyyy-MM-dd") + "_tsmResponses.log"
 
 # Log for storing responses
 $tsmLogStudent = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" + (Get-Date -Format "yyyy-MM-dd") + "_tsmStudentResponses.log"
 
 # Amount of time to before webrequest timesout
-$reqTimeOut = 15
+$reqTimeOut = 20
 
 # URL to check for UnSent responses
 $tsmUnSentURL = ":8080/studentResponse/unsent"
@@ -69,7 +69,6 @@ If ((Test-Path -Path $tsmLogStudent) -eq 0) {
 }
 
 # Function to parse the content from the WebRequest
-# Thanks to Joseph Moody for the RegEx
 function getUnsentCount($htmlContent) {
 
     $UnSentCount = $htmlContent.ToString() -split "[`r`n]" | Select-String -SimpleMatch 'unsentCount'
@@ -141,75 +140,81 @@ function tsmCheckResponses {
             # Get number of responses        
             $resNum = getUnsentCount($tsmStatus.Content)
 
-            #$resNum = 1 # test to submit responses
-
             $result = (getLogDate) + " - WebStatusCode: " + $tsmStatus.StatusCode + " - " + $tsm + " has $($resNum) responses"
 
-            #Out-File -FilePath "C:\Users\dthompson\Desktop\tsmResponses.log" -Append -InputObject $tsmStatus.ToString()
-
-            #Clear-Variable $tsmStatus
-
             if($resNum -gt 0) {
-                
+               
                 # Write Number of Responses
                 Write-Host -ForegroundColor Green $result
-                Out-File -FilePath $tsmLogs -Append -InputObject $result
-
-                # Transmit Responses
-                $tsmTransmit = tsmWebRequest $hostname 1
-
-                # Output html for when there are student responses
-                Out-File -FilePath $tsmLogStudent -Append -InputObject $tsmTransmit.ToString()
-                
-                
+                Out-File -FilePath $tsmLogs -Append -InputObject $result 
           
                 # Convert Responoses Table Body from String to Object 
                 $unSentDataString = $tsmStatus.ParsedHtml.getElementById("responsesTableBody").innerhtml
-                $unSentDataString = $unSentDataString.Replace("<tr>",'')
-                $unSentDataString = $unSentDataString.Replace("</tr>",'')
+
+      
+                #Check for Multiple Table Entries and Spilt
+                $MultipleTabeEntryObjects = 1
+                while ($MultipleTabeEntryObjects -le $resNum){
+                
+                $MultipleTableEntriesIndex = $unSentDataString.IndexOf("</tr>")
+                
+                
+                Set-Variable -Name "unSentDataString$MultipleTabeEntryObjects" -Value  $unSentDataString.Substring(0,$MultipleTableEntriesIndex)
+
+                $CurrentStringVariable = Get-Variable -Name "unSentDataString$MultipleTabeEntryObjects" -ValueOnly
+
+                $CurrentStringVariable = $CurrentStringVariable.Replace("<tr>",'')
+                $CurrentStringVariable = $CurrentStringVariable.Replace("</tr>",'')
   
-                $SchoolIndex = $unSentDataString.IndexOf("<td>")
-                $unSentDataString = $unSentDataString.Substring($SchoolIndex)
-                $unSentData = $unSentDataString | ConvertFrom-String -Delimiter "<td>" -PropertyNames NA,School,TestSession,Student,GTID,EarliestResponse
+                $SchoolIndex = $CurrentStringVariable.IndexOf("<td>")
+                $CurrentStringVariable = $CurrentStringVariable.Substring($SchoolIndex)
+                
+                
+                Set-Variable -name "unSentDataObject$MultipleTabeEntryObjects" -Value $CurrentStringVariable
+                $CurrentDataVariable = Get-Variable -Name "unSentDataObject$MultipleTabeEntryObjects" -ValueOnly
+                
+                $CurrentDataVariable = $CurrentStringVariable | ConvertFrom-String -Delimiter "<td>" -PropertyNames NA,School,TestSession,Student,GTID,EarliestResponse
 
-                $unSentData.PSObject.Properties.Remove('NA')
+                $CurrentDataVariable.PSObject.Properties.Remove('NA')
                
-                $unSentDataSchoolIndex = $unSentData.School.IndexOf("<")
-                $unsentdata.School = $unSentData.School.Substring(0,$unSentDataSchoolIndex)
+                $unSentDataSchoolIndex = $CurrentDataVariable.School.IndexOf("<")
+                $CurrentDataVariable.School = $CurrentDataVariable.School.Substring(0,$unSentDataSchoolIndex)
 
-                $unSentDataStudentIndex = $unSentData.Student.IndexOf("<")
-                $unsentdata.Student = $unSentData.Student.Substring(0,$unSentDataStudentIndex)
+                $unSentDataStudentIndex = $CurrentDataVariable.Student.IndexOf("<")
+                $CurrentDataVariable.Student = $CurrentDataVariable.Student.Substring(0,$unSentDataStudentIndex)
 
-                $unSentDataGTIDIndex = $unSentData.GTID.IndexOf("<")
-                $unsentdata.GTID = $unSentData.GTID.Substring(0,$unSentDataGTIDIndex)
+                $unSentDataGTIDIndex = $CurrentDataVariable.GTID.IndexOf("<")
+                $CurrentDataVariable.GTID = $CurrentDataVariable.GTID.Substring(0,$unSentDataGTIDIndex)
 
-                $unSentDataTestSessionIndex = $unSentData.TestSession.IndexOf("<")
-                $unsentdata.TestSession = $unSentData.TestSession.Substring(0,$unSentDataTestSessionIndex)
+                $unSentDataTestSessionIndex = $CurrentDataVariable.TestSession.IndexOf("<")
+                $CurrentDataVariable.TestSession = $CurrentDataVariable.TestSession.Substring(0,$unSentDataTestSessionIndex)
 
-                $unSentDataEarliestResponseIndex = $unSentData.EarliestResponse.IndexOf("<")
-                $unsentdata.EarliestResponse = $unSentData.EarliestResponse.Substring(0,$unSentDataEarliestResponseIndex)
+                $unSentDataEarliestResponseIndex = $CurrentDataVariable.EarliestResponse.IndexOf("<")
+                $CurrentDataVariable.EarliestResponse = $CurrentDataVariable.EarliestResponse.Substring(0,$unSentDataEarliestResponseIndex)
 
 
+                
+                # Transmit Responses
+                $tsmTransmit = tsmWebRequest $hostname 1
 
+                
                 #Search TSM Unsent Resonses Log for previous GTID entry
                 $previousunSentResponseAlert = 3
                 $previousunSentResponseAlertforGTID = 0
-                $previousunSentResponseAlertforGTID = (Select-String -Path $tsmLogStudent -Pattern $unSentData.GTID).count
+                $previousunSentResponseAlertforGTID = (Select-String -Path $tsmLogStudent -Pattern $CurrentDataVariable.GTID).count
 
                 if ($previousunSentResponseAlertforGTID -ge $previousunSentResponseAlert){
-                $previousGTIDFound = $unsentdata.School + ": " + $unSentData.Student + " has " + $previousunSentResponseAlertforGTID + " previous unsent responses ending at " + $unSentData.EarliestResponse + ". Teacher name: " + $unSentData.TestSession
+                $previousGTIDFound = $CurrentDataVariable.School + ": " + $CurrentDataVariable.Student + " has " + $previousunSentResponseAlertforGTID + " previous unsent responses ending at " + $CurrentDataVariable.EarliestResponse + ". Teacher name: " + $CurrentDataVariable.TestSession
                 Write-Host -ForegroundColor Yellow $previousGTIDFound
                 Out-File -FilePath $tsmLogs -Append -InputObject $previousGTIDFound
                 }
 
                 #Output unsent data to TSM Student Log
-                Out-File -FilePath $tsmLogStudent -Append -InputObject $unSentData
-                
-                #Capture for more than 1 response in table - remove once unsentdata object is tested for 2+
-                if ($resNum -gt 1){
-                $tsmStatus.RawContent | Out-File .\tsmrawcontent.txt -Append
+                Out-File -FilePath $tsmLogStudent -Append -InputObject $CurrentDataVariable
+             
+                $MultipleTabeEntryObjects++
+                $unSentDataString = $unSentDataString.Remove(0,$MultipleTableEntriesIndex+5)
                 }
-
 
 
                 if($tsmTransmit -ne $null) {
