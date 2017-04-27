@@ -210,14 +210,6 @@ function tsmCheckResponses {
                     $unSentDataEarliestResponseIndex = $CurrentDataVariable.EarliestResponse.IndexOf("<")
                     $CurrentDataVariable.EarliestResponse = $CurrentDataVariable.EarliestResponse.Substring(0,$unSentDataEarliestResponseIndex)
 
-                    #$tsmStudentResponses += $CurrentDataVariable
-                
-                    write-host $CurrentDataVariable.School
-                    Write-host $CurrentDataVariable.Student
-                    Write-host $CurrentDataVariable.GTID
-                    Write-Host $CurrentDataVariable.TestSession
-                    Write-host $CurrentDataVariable.EarliestResponse
-
                     $intCurrentGtidCount = 1
                     if(($tsmStudentResponses | measure).Count -gt 0) {
                         $currentGtidCount = $tsmStudentResponses | where { $_.GTID -eq $CurrentDataVariable.GTID }
