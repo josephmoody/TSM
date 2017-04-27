@@ -219,7 +219,9 @@ function tsmCheckResponses {
                             $currentGtidCount.GTID = $intCurrentGtidCount # Add an additional response to GTID
                         } else {
                             # Add GTID to object if student does not exist
-                            
+                            # Add new object if object is null
+                            $addCurrentDataVar = @{"School"=$CurrentDataVariable.School;"Student"=$CurrentDataVariable.Student;"GTID"=$CurrentDataVariable.GTID;"TestSession"=$CurrentDataVariable.TestSession;"EarliestResponse"=$CurrentDataVariable.EarliestResponse;"responseCount"=$intCurrentGtidCount}
+                            $tsmStudentResponses += New-Object PSCustomObject -Property $addCurrentDataVar
                         }
                     } else {
 
