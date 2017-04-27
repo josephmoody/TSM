@@ -160,8 +160,8 @@ function tsmCheckResponses {
                 Write-Host -ForegroundColor Green $result
                 Out-File -FilePath $tsmLogs -Append -InputObject $result 
           
-                # Convert Responoses Table Body from String to Object 
-                $unSentDataString = $tsmStatus.ParsedHtml.getElementById("responsesTableBody").innerhtml
+                # Begin Convert Responoses Table Body from String to Object 
+                $unSentDataString = $tsmStatus.AllElements | where id -EQ responsesTableBody | select -ExpandProperty innerhtml
 
       
                 #Check for Multiple Table Entries and Spilt
