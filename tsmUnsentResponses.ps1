@@ -93,6 +93,11 @@ function tsmWebRequest($tsmHostname, $tsmTrans) {
         
     # Try creating WebRequest and log errors
     try {
+        # Throw exception if link contains cms
+        if($link -like "*cms*") {
+            # Throw exception to test counting exceptions caught
+            throw [System.Net.WebException] "Error: operation has timed out"
+        }
         $html = Invoke-WebRequest -Uri $link -TimeoutSec $reqTimeOut -DisableKeepAlive
     } catch [System.Net.WebException] {
             
