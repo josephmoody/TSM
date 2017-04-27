@@ -35,6 +35,16 @@ if(Test-Path $tsmVarFile) {
 #$tsmDomain = "polk.k12.ga.us" ###### CHANGE ME ######
 
 
+# Create Object with webfailure
+$tsmWeb = @()
+
+foreach ($t in $tsmHosts) {
+
+    $tsmSetup = @{"TSM"=$t;"WebFail"=0}
+    $tsmWeb += New-Object PSCustomObject -Property $tsmSetup
+
+}
+
 # Set log file location. Default is current users Desktop
 $tsmLogs = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" + (Get-Date -Format "yyyy-MM-dd") + "_tsmResponses.log"
 
@@ -88,23 +98,20 @@ function tsmWebRequest($tsmHostname, $tsmTrans) {
     } else {
         $link = "http://" + $tsmHostname + $tsmUnSentURL
     }
-
-    
         
     # Try creating WebRequest and log errors
     try {
-        # Throw exception if link contains cms
-        if($link -like "*cms*") {
-            # Throw exception to test counting exceptions caught
-            throw [System.Net.WebException] "Error: operation has timed out"
-        }
         $html = Invoke-WebRequest -Uri $link -TimeoutSec $reqTimeOut -DisableKeepAlive
     } catch [System.Net.WebException] {
+
+        # Add exception to errored tsm
+        $addWebRequest = $tsmWeb | where {$_.TSM -eq $tsm}
+        $addWebRequest.WebFail = ($addWebRequest.WebFail + 1)
             
         # Timed out Exception
         if($_.Exception.ToString() -like "*operation has timed out*") {
                 
-            $result = (getLogDate) + " - Error: " + $tsm + " - WebRequest timed out"
+            $result = (getLogDate) + " - Error: " + $tsm + " - " + $addWebRequest.WebFail + " WebRequests have timed out."
         } else {
             # Write Unhandled exceptions
             $result = (getLogDate) + " - Unhandled Error: " + $tsm + " - " + $_.Exception.ToString()
