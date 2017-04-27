@@ -204,11 +204,6 @@ function tsmCheckResponses {
                 $unSentDataEarliestResponseIndex = $CurrentDataVariable.EarliestResponse.IndexOf("<")
                 $CurrentDataVariable.EarliestResponse = $CurrentDataVariable.EarliestResponse.Substring(0,$unSentDataEarliestResponseIndex)
 
-
-                
-                # Transmit Responses
-                $tsmTransmit = tsmWebRequest $hostname 1
-
                 
                 #Search TSM Unsent Resonses Log for previous GTID entry
                 $previousunSentResponseAlert = 3
@@ -228,6 +223,8 @@ function tsmCheckResponses {
                 $unSentDataString = $unSentDataString.Remove(0,$MultipleTableEntriesIndex+5)
                 }
 
+                # Transmit Responses
+                $tsmTransmit = tsmWebRequest $hostname 1
 
                 if($tsmTransmit -ne $null) {
                 
