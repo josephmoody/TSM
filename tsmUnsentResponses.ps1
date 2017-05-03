@@ -1,5 +1,6 @@
 ﻿# Date:   2017-04-17
 # Authors: David Thompson, Joseph Moody
+# Requirements: PowerShell 5.0+
 # Description:
 #   This script performs a web request and check for any responses
 #   If the script determines that there are responses on the TSM
@@ -21,7 +22,8 @@ if(Test-Path $tsmVarFile) {
 }
 
 
-# These vars have been left for visibility. Configuration should be done is tsmHostVars file.
+<# 
+These vars have been left for visibility. Configuration should be done is tsmHostVars file.
 # TSM Hosts. IP or DNS Name (without domain) or a combination
 #$tsmHosts = @("drc-ces-01", "drc-chs-01", "drc-cms-01") ###### CHANGE ME ######
 
@@ -33,7 +35,13 @@ if(Test-Path $tsmVarFile) {
 
 # TSM Domain. Change to your domain.
 #$tsmDomain = "polk.k12.ga.us" ###### CHANGE ME ######
+#>
 
+#Check for PowerShell 5 or Higher. Exit if lower version found.
+if ($PSVersionTable.PSVersion.Major -lt 5){
+write-host "Powershell" $PSVersionTable.PSVersion.Major "found. PowerShell 5+ is required." -ForegroundColor Red
+exit
+}
 
 # Create Object with webfailure
 $tsmWeb = @()
@@ -52,7 +60,7 @@ $tsmStudentResponses = @()
 $previousunSentResponseAlert = 3
 
 # Set log file location. Default is current users Desktop
-$tsmLogs = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" + (Get-Date -Format "yyyy-MM-dd") + "_tsmResponses.log"
+$tsmLogs = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" +  (Get-Date -Format "yyyy-MM-dd") + "_tsmResponses.log"
 
 # Log for storing responses
 $tsmLogStudent = (Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\" -name Desktop).Desktop + "\" + (Get-Date -Format "yyyy-MM-dd") + "_tsmStudentResponses.log"
