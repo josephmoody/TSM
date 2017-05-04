@@ -23,7 +23,7 @@ if(Test-Path $tsmVarFile) {
 
 
 <# 
-These vars have been left for visibility. Configuration should be done is tsmHostVars file.
+These vars have been left for visibility. Configuration should be done in tsmHostVars file.
 # TSM Hosts. IP or DNS Name (without domain) or a combination
 #$tsmHosts = @("drc-ces-01", "drc-chs-01", "drc-cms-01") ###### CHANGE ME ######
 
@@ -39,8 +39,8 @@ These vars have been left for visibility. Configuration should be done is tsmHos
 
 #Check for PowerShell 5 or Higher. Exit if lower version found.
 if ($PSVersionTable.PSVersion.Major -lt 5){
-write-host "Powershell" $PSVersionTable.PSVersion.Major "found. PowerShell 5+ is required." -ForegroundColor Red
-exit
+    write-host "Powershell" $PSVersionTable.PSVersion.Major "found. PowerShell 5+ is required." -ForegroundColor Red
+    exit
 }
 
 # Create Object with webfailure
