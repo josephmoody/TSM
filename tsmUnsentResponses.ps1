@@ -218,48 +218,28 @@ function tsmCheckResponses {
                     $unSentDataEarliestResponseIndex = $CurrentDataVariable.EarliestResponse.IndexOf("<")
                     $CurrentDataVariable.EarliestResponse = $CurrentDataVariable.EarliestResponse.Substring(0,$unSentDataEarliestResponseIndex)
 
-                    $intCurrentGtidCount = 1
-                    if(($tsmStudentResponses | measure).Count -gt 0) {
-                        $currentGtidCount = $tsmStudentResponses | where { $_.GTID -eq $CurrentDataVariable.GTID }
-
-                        if(($currentGtidCount | measure).count -gt 0) {
-                            $intCurrentGtidCount = $currentGtidCount.responseCount + 1
-                            $currentGtidCount.GTID = $intCurrentGtidCount # Add an additional response to GTID
-                        } else {
-                            # Add GTID to object if student does not exist
-                            # Add new object if object is null
-                            $addCurrentDataVar = @{"School"=$CurrentDataVariable.School;"Student"=$CurrentDataVariable.Student;"GTID"=$CurrentDataVariable.GTID;"TestSession"=$CurrentDataVariable.TestSession;"EarliestResponse"=$CurrentDataVariable.EarliestResponse;"responseCount"=$intCurrentGtidCount}
-                            $tsmStudentResponses += New-Object PSCustomObject -Property $addCurrentDataVar
-                        }
-                    } else {
-
-                        # Add new object if object is null
-                        $addCurrentDataVar = @{"School"=$CurrentDataVariable.School;"Student"=$CurrentDataVariable.Student;"GTID"=$CurrentDataVariable.GTID;"TestSession"=$CurrentDataVariable.TestSession;"EarliestResponse"=$CurrentDataVariable.EarliestResponse;"responseCount"=$intCurrentGtidCount}
-                        $tsmStudentResponses += New-Object PSCustomObject -Property $addCurrentDataVar
-
-                    }
-
                     #Search TSM Unsent Resonses Log for previous GTID entry
                     
                     $previousunSentResponseAlertforGTID = 0
-                    $previousunSentResponseAlertforGTID = $intCurrentGtidCount # Use already counted gtids
+                    $previousunSentResponseAlertforGTID = (Select-String -Path $tsmLogStudent -Pattern $CurrentDataVariable.GTID).count
 
-                    if ($previousunSentResponseAlertforGTID -ge $previousunSentResponseAlert){
-                    $previousGTIDFound = $CurrentDataVariable.School + ": " + $CurrentDataVariable.Student + " has " + $previousunSentResponseAlertforGTID + " previous unsent responses ending at " + $CurrentDataVariable.EarliestResponse + ". Teacher name: " + $CurrentDataVariable.TestSession
-                    Write-Host -ForegroundColor Yellow $previousGTIDFound
-                    Out-File -FilePath $tsmLogs -Append -InputObject $previousGTIDFound
+                    if ($previousunSentResponseAlertforGTID -ge $previousunSentResponseAlert) {
+                        $previousGTIDFound = $CurrentDataVariable.School + ": " + $CurrentDataVariable.Student + " has " + $previousunSentResponseAlertforGTID + " previous unsent responses ending at " + $CurrentDataVariable.EarliestResponse + ". Teacher name: " + $CurrentDataVariable.TestSession
+                        Write-Host -ForegroundColor Yellow $previousGTIDFound
+                        Out-File -FilePath $tsmLogs -Append -InputObject $previousGTIDFound
+                    }
+
+                    
+
+                    #Output unsent data to TSM Student Log
+                    Out-File -FilePath $tsmLogStudent -Append -InputObject $CurrentDataVariable
+             
+                    $MultipleTabeEntryObjects++
+                    $unSentDataString = $unSentDataString.Remove(0,$MultipleTableEntriesIndex+5)
                 }
 
                 # Transmit Responses
                 $tsmTransmit = tsmWebRequest $hostname 1
-
-                #Output unsent data to TSM Student Log
-                Out-File -FilePath $tsmLogStudent -Append -InputObject $CurrentDataVariable
-             
-                $MultipleTabeEntryObjects++
-                $unSentDataString = $unSentDataString.Remove(0,$MultipleTableEntriesIndex+5)
-            }
-
 
                 if($tsmTransmit -ne $null) {
                 
